@@ -1,0 +1,285 @@
+{% extends "templates/web.html" %}
+
+{% block title %}Logikbrain{% endblock %}
+
+{% block head_include %}
+<script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
+<style>
+    .lm-wrap {
+        max-width: 1140px;
+        margin: 36px auto;
+        padding: 0 20px;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    }
+
+    /* ── query bar ── */
+    .lm-query-bar {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 24px;
+    }
+
+    .lm-query-bar input {
+        flex: 1;
+        padding: 11px 16px;
+        font-size: 14px;
+        border: 1px solid #e2e8f0;
+        border-radius: 8px;
+        outline: none;
+        background: #fff;
+        color: #1e293b;
+        box-shadow: 0 1px 3px rgba(0,0,0,.06);
+        transition: border-color .15s, box-shadow .15s;
+    }
+
+    .lm-query-bar input:focus {
+        border-color: #5b8dee;
+        box-shadow: 0 0 0 3px rgba(91,141,238,.15);
+    }
+
+    .lm-query-bar button {
+        padding: 11px 26px;
+        font-size: 14px;
+        font-weight: 600;
+        background: #5b8dee;
+        color: #fff;
+        border: none;
+        border-radius: 8px;
+        cursor: pointer;
+        white-space: nowrap;
+        box-shadow: 0 1px 3px rgba(0,0,0,.12);
+        transition: background .15s, box-shadow .15s;
+    }
+
+    .lm-query-bar button:hover:not(:disabled) {
+        background: #4073d6;
+        box-shadow: 0 3px 8px rgba(91,141,238,.35);
+    }
+
+    .lm-query-bar button:disabled {
+        opacity: .55;
+        cursor: not-allowed;
+    }
+
+    /* ── spinner ── */
+    .lm-spinner {
+        display: none;
+        align-items: center;
+        gap: 10px;
+        color: #64748b;
+        font-size: 13px;
+        margin-bottom: 18px;
+    }
+
+    .lm-spinner.active { display: flex; }
+
+    .lm-spinner svg { animation: lm-spin .8s linear infinite; }
+
+    @keyframes lm-spin { to { transform: rotate(360deg); } }
+
+    /* ── chart card ── */
+    .lm-card {
+        display: none;
+        background: #fff;
+        border: 1px solid #e2e8f0;
+        border-radius: 12px;
+        box-shadow: 0 2px 8px rgba(0,0,0,.07);
+        overflow: hidden;
+    }
+
+    .lm-card.active { display: block; }
+
+    .lm-card-header {
+        padding: 16px 22px 0;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .lm-card-title {
+        font-size: 15px;
+        font-weight: 600;
+        color: #1e293b;
+        margin: 0;
+    }
+
+    .lm-card-rows {
+        font-size: 12px;
+        color: #94a3b8;
+    }
+
+    .lm-print-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 6px 14px;
+        font-size: 13px;
+        font-weight: 500;
+        color: #475569;
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+        border-radius: 6px;
+        cursor: pointer;
+        transition: background .15s, border-color .15s;
+        margin-left: 12px;
+    }
+
+    .lm-print-btn:hover {
+        background: #f1f5f9;
+        border-color: #cbd5e1;
+    }
+
+
+    #logikbrain-chart {
+        width: 100%;
+        height: 460px;
+        padding: 8px 0 4px;
+    }
+
+    .lm-table-wrap {
+        border-top: 1px solid #f1f5f9;
+        overflow-x: auto;
+        max-height: 260px;
+        overflow-y: auto;
+    }
+
+    .lm-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 13px;
+    }
+
+    .lm-table thead th {
+        position: sticky;
+        top: 0;
+        background: #f8fafc;
+        color: #64748b;
+        font-weight: 600;
+        text-transform: uppercase;
+        font-size: 11px;
+        letter-spacing: .04em;
+        padding: 9px 16px;
+        text-align: left;
+        border-bottom: 1px solid #e2e8f0;
+        white-space: nowrap;
+    }
+
+    .lm-table tbody tr {
+        border-bottom: 1px solid #f1f5f9;
+        transition: background .1s;
+    }
+
+    .lm-table tbody tr:last-child { border-bottom: none; }
+
+    .lm-table tbody tr:hover { background: #f8fafc; }
+
+    .lm-table tbody td {
+        padding: 8px 16px;
+        color: #334155;
+        white-space: nowrap;
+    }
+
+    .lm-table tbody td.num {
+        text-align: right;
+        font-variant-numeric: tabular-nums;
+        color: #1e293b;
+        font-weight: 500;
+    }
+
+    /* ── results row ── */
+    .lm-results-row {
+        display: flex;
+        align-items: flex-start;
+        gap: 16px;
+    }
+
+    /* ── explanation panel ── */
+    #logikbrain-explanation {
+        display: none;
+        flex: 0 0 220px;
+        background: #fff;
+        border: 1px solid #e2e8f0;
+        border-radius: 12px;
+        box-shadow: 0 2px 8px rgba(0,0,0,.07);
+        padding: 16px;
+        font-size: 13px;
+        color: #475569;
+        line-height: 1.6;
+    }
+
+    #logikbrain-explanation.active { display: block; }
+
+    #logikbrain-explanation .lm-exp-title {
+        font-size: 11px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: .06em;
+        color: #94a3b8;
+        margin: 0 0 8px;
+    }
+
+    #logikbrain-explanation .lm-exp-body {
+        margin: 0;
+    }
+
+    .lm-exp-spinner {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        color: #94a3b8;
+        font-size: 12px;
+    }
+
+    .lm-exp-spinner svg {
+        animation: lm-spin .8s linear infinite;
+        flex-shrink: 0;
+    }
+
+    .lm-card { flex: 1; min-width: 0; }
+</style>
+{% endblock %}
+
+{% block page_content %}
+<div class="lm-wrap">
+    <div class="lm-query-bar">
+        <input
+            id="logikbrain-input"
+            type="text"
+            placeholder="Ask a business question — e.g. &ldquo;Show top 10 customers by revenue this month&rdquo;"
+            autocomplete="off"
+        />
+        <button id="logikbrain-ask-btn">Ask</button>
+    </div>
+
+    <div class="lm-spinner" id="logikbrain-spinner">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+            <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/>
+        </svg>
+        Analysing your question…
+    </div>
+
+    <div class="lm-results-row">
+        <div id="logikbrain-explanation">
+            <p class="lm-exp-title">Insight</p>
+            <p class="lm-exp-body" id="logikbrain-explanation-text"></p>
+        </div>
+
+        <div class="lm-card" id="logikbrain-card">
+            <div class="lm-card-header">
+                <p class="lm-card-title" id="logikbrain-chart-title"></p>
+                <div style="display:flex;align-items:center;gap:8px;">
+                    <span class="lm-card-rows" id="logikbrain-row-count"></span>
+                    <button class="lm-print-btn" id="logikbrain-print-btn">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/>
+                        </svg>
+                        Print PDF
+                    </button>
+                </div>
+            </div>
+            <div id="logikbrain-chart"></div>
+            <div class="lm-table-wrap" id="logikbrain-table-wrap"></div>
+        </div>
+    </div>
+</div>
+{% endblock %}
